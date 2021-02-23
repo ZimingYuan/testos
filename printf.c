@@ -1,7 +1,6 @@
 #include <stdarg.h>
+#include "kernel.h"
 
-void consputc(char);
-void panic(char *);
 typedef unsigned int uint;
 typedef unsigned long long uint64;
 static char digits[] = "0123456789abcdef";

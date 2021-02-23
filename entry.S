@@ -2,7 +2,7 @@
     .globl _start
 _start:
     la sp, boot_stack_top
-    call main
+    call load_all
 
     .section .bss.stack
     .globl boot_stack
