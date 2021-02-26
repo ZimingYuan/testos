@@ -22,6 +22,12 @@ isize write(usize fd, char *buf) {
 isize exit(int exit_code) {
     return syscall(SYSCALL_EXIT, (usize)exit_code, 0, 0);
 }
+isize yield() {
+    return syscall(SYSCALL_YIELD, 0, 0, 0);
+}
+isize get_time() {
+    return syscall(SYSCALL_GET_TIME, 0, 0, 0);
+}
 extern char sbss, ebss;
 void clear_bss() {
     for (char *i = &sbss; i < &ebss; i++) *i = 0;

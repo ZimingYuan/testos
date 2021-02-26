@@ -12,19 +12,19 @@ _num_app:
     .global app_0_start
     .global app_0_end
 app_0_start:
-    .incbin "hello_world.bin"
+    .incbin "hello_world0.bin"
 app_0_end:
 
     .section .data
     .global app_1_start
     .global app_1_end
 app_1_start:
-    .incbin "hello_world.bin"
+    .incbin "hello_world1.bin"
 app_1_end:
 
     .section .data
     .global app_2_start
     .global app_2_end
 app_2_start:
-    .incbin "hello_world.bin"
+    .incbin "hello_world2.bin"
 app_2_end:
