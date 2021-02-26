@@ -7,7 +7,7 @@ int main() {
         s[16] = (i % 10) + '0';
         write(FD_STDOUT, s);
         w = get_time() + 10;
-        while (get_time() < w) yield();
+        while (get_time() < w); // yield();
     }
     return 0;
 }
