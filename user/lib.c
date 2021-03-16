@@ -1,4 +1,6 @@
-#include "user.h"
+#include "common.h"
+#include "syscall.h"
+#include "filec.h"
 
 isize syscall(usize id, usize a0, usize a1, usize a2) {
     isize ret;
@@ -11,7 +13,7 @@ isize syscall(usize id, usize a0, usize a1, usize a2) {
             "mv %0, x10\n"
             :"=r"(ret)
             :"r"(a0), "r"(a1), "r"(a2), "r"(id)
-            :"memory", "x10", "x11", "x12", "x17"
+            :"x10", "x11", "x12", "x17"
             );
     return ret;
 }
@@ -28,13 +30,11 @@ isize yield() {
 isize get_time() {
     return syscall(SYSCALL_GET_TIME, 0, 0, 0);
 }
-extern char sbss, ebss;
-void clear_bss() {
-    for (char *i = &sbss; i < &ebss; i++) *i = 0;
+void consputc(char x) {
+    char s[2]; s[0] = x; s[1] = '\0'; write(FD_STDOUT, s);
 }
 int main();
 __attribute__((section(".text.entry")))
 void _start() {
-    clear_bss();
     exit(main());
 }

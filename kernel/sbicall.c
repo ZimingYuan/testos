@@ -15,7 +15,7 @@ isize sbi_call(usize id, usize a0, usize a1, usize a2) {
             "mv %0, x10\n"
             :"=r"(ret)
             :"r"(a0), "r"(a1), "r"(a2), "r"(id)
-            :"memory", "x10", "x11", "x12", "x17"
+            :"x10", "x11", "x12", "x17"
             );
     return ret;
 }

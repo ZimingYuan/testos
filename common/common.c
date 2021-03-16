@@ -1,11 +1,13 @@
 // Most of this file is copy from xv6-riscv(https://github.com/mit-pdos/xv6-riscv)
 
 #include <stdarg.h>
-#include "kernel.h"
+#include "common.h"
 
 typedef unsigned int uint;
 typedef unsigned long long uint64;
 static char digits[] = "0123456789abcdef";
+void consputc(char x);
+void panic(char *);
 
 static void
 printint(int xx, int base, int sign)
@@ -97,4 +99,15 @@ panic(char *s)
   printf("\n");
   for(;;)
     ;
+}
+
+void *memset(void *dst, int c, unsigned int n) {
+    char *cdst = (char *)dst;
+    for (int i = 0; i < n; i++) cdst[i] = c;
+    return dst;
+}
+void *memcpy(void *dst, void *src, unsigned int n) {
+    char *cdst = (char *)dst, *csrc = (char *)src;
+    for (int i = 0; i < n; i++) cdst[i] = csrc[i];
+    return dst;
 }
