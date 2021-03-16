@@ -4,6 +4,9 @@ normal: compile
 	qemu-system-riscv64 -machine virt -nographic -bios common/rustsbi-qemu.bin \
 		-device loader,file=build/os.bin,addr=0x80200000
 compile:
+ifneq (build, $(wildcard build))
+	mkdir build
+endif
 	$(CC) user/hello_world0.c user/lib.c common/common.c -T user/linker.ld -o build/hello_world0
 	$(CC) user/hello_world1.c user/lib.c common/common.c -T user/linker.ld -o build/hello_world1
 	$(CC) user/hello_world2.c user/lib.c common/common.c -T user/linker.ld -o build/hello_world2
