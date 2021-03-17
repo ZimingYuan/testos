@@ -95,6 +95,5 @@ void exit_current_and_run_next() {
 }
 void run_first_task() {
     tasks[0].task_status = Running;
-    asm volatile("csrw stvec, %0"::"r"(TRAMPOLINE));
     usize t; __switch(&t, &tasks[0].task_cx_ptr);
 }
