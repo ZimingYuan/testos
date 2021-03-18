@@ -87,7 +87,7 @@ void exit_current_and_run_next() {
     VirtAddr top = TRAMPOLINE - current_task * (KERNEL_STACK_SIZE + PAGE_SIZE);
     VirtAddr bottom = top - KERNEL_STACK_SIZE;
     extern PhysPageNum kernel_pagetable;
-    unmap_area(kernel_pagetable, bottom, top, 1);
+    unmap_area(kernel_pagetable, bottom, top, 0);
     // free user pagetable
     free_pagetable(current_user_pagetable());
 
