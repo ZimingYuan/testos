@@ -17,9 +17,17 @@ isize syscall(usize id, usize a0, usize a1, usize a2) {
             );
     return ret;
 }
-isize write(usize fd, char *buf) {
-    usize len = 0; while (buf[len] != '\0') len++;
+isize write(usize fd, char *buf, usize len) {
     return syscall(SYSCALL_WRITE, fd, (usize)buf, len);
+}
+isize read(usize fd, char *buf, usize len) {
+    return syscall(SYSCALL_READ, fd, (usize)buf, len);
+}
+void consputc(char x) {
+    char s = x; write(FD_STDOUT, &s, 1);
+}
+char getchar() {
+    char s; read(FD_STDIN, &s, 1); return s;
 }
 isize exit(int exit_code) {
     return syscall(SYSCALL_EXIT, (usize)exit_code, 0, 0);
@@ -30,8 +38,23 @@ isize yield() {
 isize get_time() {
     return syscall(SYSCALL_GET_TIME, 0, 0, 0);
 }
-void consputc(char x) {
-    char s[2]; s[0] = x; s[1] = '\0'; write(FD_STDOUT, s);
+isize fork() {
+    return syscall(SYSCALL_FORK, 0, 0, 0);
+}
+isize wait(int *exit_code) {
+    for (;;) {
+        isize exit_pid = syscall(SYSCALL_WAITPID, -1, (usize)exit_code, 0);
+        if (exit_pid == -2) yield(); else return exit_pid;
+    }
+}
+isize waitpid(usize pid, int *exit_code) {
+    for (;;) {
+        isize exit_pid = syscall(SYSCALL_WAITPID, pid, (usize)exit_code, 0);
+        if (exit_pid == -2) yield(); else return exit_pid;
+    }
+}
+isize exec(char *path) {
+    return syscall(SYSCALL_EXEC, (usize)path, strlen(path), 0);
 }
 int main();
 __attribute__((section(".text.entry")))

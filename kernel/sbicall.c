@@ -1,6 +1,7 @@
 #include "kernel.h"
 
 const usize SBI_PUTCHAR = 1;
+const usize SBI_GETCHAR = 2;
 const usize SBI_SHUTDOWN = 8;
 const usize SBI_SETTIMER = 0;
 
@@ -21,6 +22,9 @@ isize sbi_call(usize id, usize a0, usize a1, usize a2) {
 }
 void consputc(char x) {
     sbi_call(SBI_PUTCHAR, x, 0, 0);
+}
+usize console_getchar() {
+    return sbi_call(SBI_GETCHAR, 0, 0, 0);
 }
 void exit_all() {
     sbi_call(SBI_SHUTDOWN,  0, 0, 0);

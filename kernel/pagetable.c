@@ -55,6 +55,21 @@ void copy_area(PhysPageNum root, VirtAddr start_va, void *data, int len, int to_
         len -= copy_len; cdata += copy_len; vpn++;
     }
 }
+void copy_virt_area(PhysPageNum dstp, PhysPageNum srcp, VirtAddr dst_st, VirtAddr src_st, VirtAddr src_en) {
+    VirtPageNum src_st_vpn = FLOOR(src_st), src_en_vpn = CEIL(src_en);
+    VirtPageNum dst_st_vpn = FLOOR(dst_st);
+    for (VirtPageNum i = src_st_vpn; i < src_en_vpn; i++) {
+        PageTableEntry *src_pte_p = find_pte(srcp, i, 0);
+        PhysAddr src_pa = PPN2PA(PTE2PPN(*src_pte_p));
+        PageTableEntry *dst_pte_p = find_pte(dstp, i - src_st_vpn + dst_st_vpn, 1);
+        if (!(*dst_pte_p & V)) {
+            PhysPageNum ppn = frame_alloc();
+            *dst_pte_p = PPN2PTE(ppn, PTE2FLAG(*src_pte_p));
+        }
+        PhysAddr dst_pa = PPN2PA(PTE2PPN(*dst_pte_p));
+        memcpy((char *)dst_pa, (char *)src_pa, PAGE_SIZE);
+    }
+}
 void map_trampoline(PhysPageNum root) {
     extern char strampoline;
     map(root, FLOOR(TRAMPOLINE), FLOOR((PhysAddr)&strampoline), R | X);

@@ -150,7 +150,7 @@ bd_malloc(usize nbytes)
     lst_push(&bd_sizes[k-1].free, q);
   }
   release(&lock);
-
+  // int size(char *p); printf("bd_malloc: %d\n", size(p));
   return p;
 }
 
@@ -191,6 +191,7 @@ bd_free(void *p) {
     bit_clear(bd_sizes[k+1].split, blk_index(k+1, p));
   }
   lst_push(&bd_sizes[k].free, p);
+  // printf("bd_free: %d\n", size(p));
   release(&lock);
 }
 

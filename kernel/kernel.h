@@ -18,6 +18,7 @@
 #define PPN2PA(ppn) ((ppn) * PAGE_SIZE)
 #define PPN2PTE(ppn, flags) (((ppn) << 10) | (flags))
 #define PTE2PPN(pte) (((pte) >> 10) & ((1L << 44) - 1))
+#define PTE2FLAG(pte) ((unsigned char)((pte) & 255))
 #define PGTB2SATP(pgtb) ((8L << 60) | (pgtb))
 
 struct TrapContext {
@@ -43,23 +44,32 @@ typedef unsigned char PTEFlags;
 // sbicall.c
 void exit_all();
 void set_timer(usize);
+usize console_getchar();
 
 // task.c
-void task_init();
+void task_init_and_run();
 PhysPageNum current_user_pagetable();
 TrapContext *current_user_trap_cx();
 void suspend_current_and_run_next();
-void exit_current_and_run_next();
-void run_first_task();
+void exit_current_and_run_next(int);
+usize fork();
+isize exec(char *);
+isize waitpid(isize, int *);
+void shutdown();
 
 // loader.c
-void from_elf(char *, PhysPageNum *, usize *, usize *);
+void from_elf(char *, PhysPageNum, usize *, usize *);
+char *get_app_data_by_name(char *);
 
 // syscall.c
 isize sys_write(usize, char *, usize);
+isize sys_read(usize, char *, usize);
 isize sys_exit(int);
 isize sys_yield();
 isize sys_get_time();
+isize sys_fork();
+isize sys_exec(char *, usize);
+isize sys_waitpid(isize, int *);
 
 // timer.c
 void set_next_trigger();
@@ -84,12 +94,18 @@ PhysPageNum frame_alloc();
 void frame_dealloc(PhysPageNum);
 void print_frame_num();
 
+// pid.c
+void pid_init();
+usize pid_alloc();
+void pid_dealloc(usize);
+
 // pagetable.c
 void kvm_init();
 PageTableEntry *find_pte(PhysPageNum, VirtPageNum, int);
 void map_area(PhysPageNum, VirtAddr, VirtAddr, PTEFlags, int);
 void unmap_area(PhysPageNum, VirtAddr, VirtAddr, int);
 void copy_area(PhysPageNum, VirtAddr, void *, int, int);
+void copy_virt_area(PhysPageNum, PhysPageNum, VirtAddr, VirtAddr, VirtAddr);
 void free_pagetable(PhysPageNum);
 void map_trampoline(PhysPageNum);
 

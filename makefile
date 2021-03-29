@@ -1,16 +1,17 @@
 CC = riscv64-unknown-elf-gcc -ffreestanding -nostdlib -g -mcmodel=medany -Icommon
 OC = riscv64-unknown-elf-objcopy --strip-all -O binary
-normal: compile
+user_obj = $(foreach i, $(filter-out user/lib.c, $(wildcard user/*.c)), build/$(basename $(notdir $i)))
+run: compile
 	qemu-system-riscv64 -machine virt -nographic -bios common/rustsbi-qemu.bin \
 		-device loader,file=build/os.bin,addr=0x80200000
-compile:
+$(user_obj): $(wildcard user/*.c)
 ifneq (build, $(wildcard build))
 	mkdir build
 endif
-	$(CC) user/hello_world0.c user/lib.c common/common.c -T user/linker.ld -o build/hello_world0
-	$(CC) user/hello_world1.c user/lib.c common/common.c -T user/linker.ld -o build/hello_world1
-	$(CC) user/hello_world2.c user/lib.c common/common.c -T user/linker.ld -o build/hello_world2
-	$(CC) kernel/*.c kernel/*.S common/common.c -T kernel/linker.ld -o build/os
+	$(CC) user/$(@F).c user/lib.c common/common.c -T user/linker.ld -o $@
+compile: $(user_obj)
+	python kernel/build.py
+	$(CC) kernel/*.c kernel/*.S build/link_app.S common/common.c -T kernel/linker.ld -o build/os
 	$(OC) build/os build/os.bin
 debug: compile
 	qemu-system-riscv64 -machine virt -nographic -bios common/rustsbi-qemu.bin \

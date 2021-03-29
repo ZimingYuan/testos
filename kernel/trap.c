@@ -4,23 +4,34 @@
 isize syscall(usize syscall_id, usize args0, usize args1, usize args2) {
     switch (syscall_id) {
         case SYSCALL_WRITE:
-            sys_write(args0, (char *)args1, args2);
-            break;
+            return sys_write(args0, (char *)args1, args2);
+        case SYSCALL_READ:
+            return sys_read(args0, (char *)args1, args2);
         case SYSCALL_EXIT:
-            sys_exit((int)args0);
-            break;
+            return sys_exit((int)args0);
         case SYSCALL_YIELD:
-            sys_yield();
-            break;
+            return sys_yield();
         case SYSCALL_GET_TIME:
-            sys_get_time();
-            break;
+            return sys_get_time();
+        case SYSCALL_FORK:
+            return sys_fork();
+        case SYSCALL_EXEC:
+            return sys_exec((char *)args0, args1);
+        case SYSCALL_WAITPID:
+            return sys_waitpid(args0, (int *)args1);
         default:
             printf("%p\n", syscall_id);
             panic("Other syscall");
     }
 }
 void trap_from_kernel() {
+    usize scause, sepc;
+    asm volatile (
+            "csrr %0, scause\n"
+            "csrr %1, sepc\n"
+            :"=r"(scause), "=r"(sepc) 
+            );
+    printf("scause:%p\n", scause); printf("sepc:%p\n", sepc);
     panic("trap_from_kernel");
 }
 void trap_handler() {
@@ -34,7 +45,9 @@ void trap_handler() {
     TrapContext *cx = current_user_trap_cx();
     if (scause == 8) {
         cx->sepc += 4;
-        cx->x[10] = syscall(cx->x[17], cx->x[10], cx->x[11], cx->x[12]);
+        isize result = syscall(cx->x[17], cx->x[10], cx->x[11], cx->x[12]);
+        cx = current_user_trap_cx();
+        cx->x[10] = result;
     } else if (scause == (1L << 63) + 5) {
         set_next_trigger();
         suspend_current_and_run_next();

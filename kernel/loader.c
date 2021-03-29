@@ -4,8 +4,7 @@
 #define KERNEL_HEAP_SIZE 0x300000
 
 char HEAP_SPACE[KERNEL_HEAP_SIZE];
-void from_elf(char *elf_data, PhysPageNum *user_pagetable, usize *user_sp, usize *entry_point) {
-    PhysPageNum user_pgtb = frame_alloc(); map_trampoline(user_pgtb);
+void from_elf(char *elf_data, PhysPageNum user_pgtb, usize *user_size, usize *entry_point) {
     // get elf header
     struct elfhdr *elf = (struct elfhdr *)elf_data;
     if (elf->magic != ELF_MAGIC) panic("from_elf: invalid elf file");
@@ -26,24 +25,45 @@ void from_elf(char *elf_data, PhysPageNum *user_pagetable, usize *user_sp, usize
         offset += sizeof(struct proghdr);
     }
     // map user stack(in user space)
-    VirtAddr user_stack_bottom = PPN2PA(max_end_vpn) + PAGE_SIZE;
-    VirtAddr user_stack_top = user_stack_bottom + USER_STACK_SIZE;
-    map_area(user_pgtb, user_stack_bottom, user_stack_top, R | W | U, 1);
+    // VirtAddr user_stack_bottom = PPN2PA(max_end_vpn) + PAGE_SIZE;
+    // VirtAddr user_stack_top = user_stack_bottom + USER_STACK_SIZE;
+    // map_area(user_pgtb, user_stack_bottom, user_stack_top, R | W | U, 1);
     // map trap context
-    map_area(user_pgtb, TRAP_CONTEXT, TRAMPOLINE, R | W, 1);
-    *user_pagetable = user_pgtb; *user_sp = user_stack_top; *entry_point = elf->entry;
+    // map_area(user_pgtb, TRAP_CONTEXT, TRAMPOLINE, R | W, 1);
+    *entry_point = elf->entry; *user_size = PPN2PA(max_end_vpn);
+}
+char **APP_NAMES; extern usize _num_app;
+void load_app_names() {
+    extern char _app_names; char *start = &_app_names;
+    APP_NAMES = bd_malloc(_num_app * sizeof(char *));
+    for (int i = 0; i < _num_app; i++) {
+        APP_NAMES[i] = start; while (*start) start++; start++;
+    }
+}
+char *get_app_data_by_name(char *name) {
+    for (int i = 0; i < _num_app; i++)
+        if (strcmp(name, APP_NAMES[i]) == 0) {
+            return (char *)(&_num_app + 1)[i];
+        }
+    return 0;
+}
+void list_apps() {
+    printf("/**** APPS ****\n");
+    for (int i = 0; i < _num_app; i++)
+        printf("%s\n", APP_NAMES[i]);
+    printf("**************/\n");
 }
 void load_all() {
     // load heap buffer
     bd_init(HEAP_SPACE, HEAP_SPACE + KERNEL_HEAP_SIZE);
     // load kernel virtual memory
     kvm_init();
-    // load tasks
-    task_init();
+    // load app names
+    load_app_names(); list_apps();
     // load timer interrupt
     usize sie; asm volatile("csrr %0, sie":"=r"(sie));
     sie |= (1 << 5); asm volatile("csrw sie, %0"::"r"(sie));
-    set_next_trigger();
-
-    run_first_task();
+    // set_next_trigger();
+    // load tasks
+    task_init_and_run();
 }

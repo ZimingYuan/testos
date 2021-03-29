@@ -111,3 +111,12 @@ void *memcpy(void *dst, void *src, unsigned int n) {
     for (int i = 0; i < n; i++) cdst[i] = csrc[i];
     return dst;
 }
+int strcmp(const char *s1, const char *s2) {
+    while (*s1 && *s2) {
+        if (*s1 != *s2) return *s1 - *s2; else s1++, s2++;
+    }
+    return *s1 - *s2;
+}
+usize strlen(const char *s) {
+    usize len = 0; while (s[len]) len++; return len; 
+}
