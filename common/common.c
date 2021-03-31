@@ -103,7 +103,8 @@ panic(char *s)
 
 void *memset(void *dst, int c, unsigned int n) {
     char *cdst = (char *)dst;
-    for (int i = 0; i < n; i++) cdst[i] = c;
+    for (int i = 0; i < n; i++)
+        cdst[i] = c;
     return dst;
 }
 void *memcpy(void *dst, void *src, unsigned int n) {

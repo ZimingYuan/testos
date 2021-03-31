@@ -25,7 +25,7 @@ PhysPageNum frame_alloc() {
         else ppn = fcurrent++;
     }
     memset((void *)PPN2PA(ppn), 0, PAGE_SIZE);
-    printf("frame_alloc:remain%d\n", --frame_num);
+    // printf("frame_alloc:remain%d\n", --frame_num);
     return ppn;
 }
 void frame_dealloc(PhysPageNum ppn) {
@@ -35,10 +35,7 @@ void frame_dealloc(PhysPageNum ppn) {
     }
     struct fnode *x = bd_malloc(sizeof(struct fnode));
     x->ppn = ppn; lst_push(frecycled, x);
-    printf("frame_dealloc:remain%d\n", ++frame_num);
+    // printf("frame_dealloc:remain%d\n", ++frame_num);
     return;
 fail: panic("frame_dealloc failed!");
-}
-void print_frame_num() {
-    printf("frame_num:%d\n", frame_num);
 }

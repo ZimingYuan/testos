@@ -40,13 +40,9 @@ TaskControlBlock *alloc_proc() {
     tcb->parent = 0;
     LIST_INIT(&tcb->children);
 }
-void task_exec(TaskControlBlock *tcb, char *name) {
+void user_init(TaskControlBlock *tcb, char *name) {
     usize entry_point;
     from_elf(get_app_data_by_name(name), tcb->pagetable, &tcb->base_size, &entry_point);
-    // fill task context
-    TaskContext *task_cx_ptr = (TaskContext *)tcb->task_cx_ptr;
-    task_cx_ptr->ra = (usize)trap_return; 
-    memset(task_cx_ptr->s, 0, sizeof(usize) * 12);
     // fill trap context
     TrapContext *trap_cx = (TrapContext *)PPN2PA(tcb->trap_cx_ppn);
     memset(trap_cx->x, 0, sizeof(usize) * 32);
@@ -56,7 +52,7 @@ void task_exec(TaskControlBlock *tcb, char *name) {
     trap_cx->sepc = entry_point;
     extern PhysPageNum kernel_pagetable;
     trap_cx->kernel_satp = PGTB2SATP(kernel_pagetable);
-    trap_cx->kernel_sp = TRAMPOLINE - tcb->pid * (KERNEL_STACK_SIZE + PAGE_SIZE) - sizeof(TaskContext);
+    trap_cx->kernel_sp = TRAMPOLINE - tcb->pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
     trap_cx->trap_handler = (usize)trap_handler;
 }
 
@@ -104,9 +100,12 @@ void schedule(usize *switched_task_cx_ptr2) {
 void task_init_and_run() {
     TAILQ_INIT(&t_head); pid_init();
     initproc = alloc_proc();
-    task_exec(initproc, "initproc");
-    add_task(initproc);
-    run(&PROCESSOR);
+    user_init(initproc, "initproc");
+    // fill task context
+    TaskContext *task_cx_ptr = (TaskContext *)initproc->task_cx_ptr;
+    task_cx_ptr->ra = (usize)trap_return; 
+    memset(task_cx_ptr->s, 0, sizeof(usize) * 12);
+    add_task(initproc); run(&PROCESSOR);
 }
 
 PhysPageNum current_user_pagetable() {
@@ -148,30 +147,27 @@ usize fork() {
     copy_virt_area(tcb->pagetable, p->pagetable, 0, 0, p->base_size);
     // copy user stack and trap context
     copy_virt_area(tcb->pagetable, p->pagetable, TRAP_CONTEXT - USER_STACK_SIZE, TRAP_CONTEXT - USER_STACK_SIZE, TRAMPOLINE);
-    // map kernel stack(per task)
-    VirtAddr top = TRAMPOLINE - tcb->pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
-    VirtAddr bottom = top - KERNEL_STACK_SIZE;
-    VirtAddr ptop = TRAMPOLINE - p->pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
-    VirtAddr pbottom = ptop - KERNEL_STACK_SIZE;
-    extern PhysPageNum kernel_pagetable;
-    copy_virt_area(kernel_pagetable, kernel_pagetable, bottom, pbottom, ptop);
     // fill task block
     tcb->base_size = p->base_size; tcb->parent = p;
     // add children to parent
     tlist *x = bd_malloc(sizeof(tlist)); x->tcb = tcb;
     LIST_INSERT_HEAD(&p->children, x, entries);
+    // fill task context
+    TaskContext *task_cx_ptr = (TaskContext *)tcb->task_cx_ptr;
+    task_cx_ptr->ra = (usize)trap_return; 
+    memset(task_cx_ptr->s, 0, sizeof(usize) * 12);
     // fill trap context
     TrapContext *trap_cx = (TrapContext *)PPN2PA(tcb->trap_cx_ppn);
-    trap_cx->kernel_sp = top - sizeof(TaskContext); trap_cx->x[10] = 0;
+    trap_cx->kernel_sp = TRAMPOLINE - tcb->pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
+    trap_cx->x[10] = 0;
 
     add_task(tcb); return tcb->pid;
 }
 isize exec(char *name) {
     if (! get_app_data_by_name(name)) return -1;
-    printf(name);
     TaskControlBlock *p = PROCESSOR.current;
     unmap_area(p->pagetable, 0, p->base_size, 1);
-    task_exec(p, name);
+    user_init(p, name);
 }
 isize waitpid(isize pid, int *exit_code) {
     TaskControlBlock *p = PROCESSOR.current;
@@ -180,6 +176,7 @@ isize waitpid(isize pid, int *exit_code) {
         if (pid == -1 || (usize)pid == child->tcb->pid) {
             if (child->tcb->task_status == Zombie) {
                 *exit_code = child->tcb->exit_code;
+                pid = child->tcb->pid; // pid may be -1 before
                 VirtAddr top = TRAMPOLINE - pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
                 VirtAddr bottom = top - KERNEL_STACK_SIZE;
                 extern PhysPageNum kernel_pagetable;
@@ -194,6 +191,10 @@ isize waitpid(isize pid, int *exit_code) {
 }
 
 void shutdown() {
-    free_uvm(initproc); pid_dealloc(initproc->pid); bd_free(initproc);
+    VirtAddr top = TRAMPOLINE - initproc->pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
+    VirtAddr bottom = top - KERNEL_STACK_SIZE;
+    extern PhysPageNum kernel_pagetable;
+    unmap_area(kernel_pagetable, bottom, top, 1);
+    pid_dealloc(initproc->pid); bd_free(initproc);
     exit_all();
 }

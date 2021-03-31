@@ -63,7 +63,7 @@ void load_all() {
     // load timer interrupt
     usize sie; asm volatile("csrr %0, sie":"=r"(sie));
     sie |= (1 << 5); asm volatile("csrw sie, %0"::"r"(sie));
-    // set_next_trigger();
+    set_next_trigger();
     // load tasks
     task_init_and_run();
 }

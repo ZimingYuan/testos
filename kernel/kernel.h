@@ -45,6 +45,7 @@ typedef unsigned char PTEFlags;
 void exit_all();
 void set_timer(usize);
 usize console_getchar();
+void consputc(char x);
 
 // task.c
 void task_init_and_run();
@@ -70,6 +71,7 @@ isize sys_get_time();
 isize sys_fork();
 isize sys_exec(char *, usize);
 isize sys_waitpid(isize, int *);
+isize sys_gets(char *, usize);
 
 // timer.c
 void set_next_trigger();

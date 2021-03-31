@@ -16,7 +16,8 @@ isize sys_read(usize fd, char *buffer, usize len) {
             char *pbuffer = bd_malloc(len);
             for (int i = 0; i < len; i++) {
                 char c;
-                while (!(c = console_getchar())) suspend_current_and_run_next();
+                while (!(c = console_getchar()))
+                     suspend_current_and_run_next();
                 pbuffer[i] = c;
             }
             copy_area(current_user_pagetable(), (VirtAddr)buffer, pbuffer, len, 1);
@@ -29,7 +30,6 @@ isize sys_yield() {
     return 0;
 }
 isize sys_exit(int xstate) {
-    printf("Application exited with code %d\n", xstate);
     exit_current_and_run_next(xstate);
 }
 isize sys_get_time() {
@@ -47,4 +47,35 @@ isize sys_waitpid(isize pid, int *exit_code) {
     int _exit_code; isize r = waitpid(pid, &_exit_code);
     copy_area(current_user_pagetable(), (VirtAddr)exit_code, &_exit_code, sizeof(int), 1);
     return r;
+}
+isize sys_gets(char *buffer, usize maxlen) {
+    char *pbuffer = bd_malloc(maxlen + 1), c; isize len = 0;
+    for (;;) {
+        while (!(c = console_getchar()))
+            suspend_current_and_run_next();
+        switch (c) {
+            case LF:
+            case CR:
+                consputc('\n'); pbuffer[len] = '\0'; goto over;
+            case BS:
+            case DL: {
+                if (len) {
+                    consputc(BS);
+                    consputc(' ');
+                    consputc(BS);
+                    len--;
+                }
+                break;
+            }
+            default: {
+                if (len < maxlen) {
+                    consputc(c);
+                    pbuffer[len++] = c;
+                }
+                break;
+            }
+        }
+    }
+over:   copy_area(current_user_pagetable(), (VirtAddr)buffer, pbuffer, maxlen + 1, 1);
+        bd_free(pbuffer); return len;
 }

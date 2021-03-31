@@ -1,11 +1,17 @@
 #include "user.h"
 
 int main() {
-    isize w;
+    isize p = fork(); isize w;
     for (int i = 0; i < 10; i++) {
-        printf("Program[0] print%d\n", i);
-        w = get_time() + 10;
-        while (get_time() < w); // yield();
+        if (p == 0) {
+            printf("Program[0] print%d\n", i);
+            w = get_time() + 10;
+        } else {
+            printf("Program[1] print%d\n", i);
+            w = get_time() + 20;
+        }
+        while (get_time() < w) yield();
     }
+    if (p == 0) exec("hello_world2"); else exec("hello_world1");
     return 0;
 }

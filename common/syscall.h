@@ -9,5 +9,6 @@
 #define SYSCALL_WAITPID 5
 #define SYSCALL_EXEC 6
 #define SYSCALL_READ 7
+#define SYSCALL_GETS 8
 
 #endif

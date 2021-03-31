@@ -56,6 +56,9 @@ isize waitpid(usize pid, int *exit_code) {
 isize exec(char *path) {
     return syscall(SYSCALL_EXEC, (usize)path, strlen(path), 0);
 }
+isize gets(char *buf, usize maxlen) {
+    return syscall(SYSCALL_GETS, (usize)buf, maxlen, 0);
+}
 int main();
 __attribute__((section(".text.entry")))
 void _start() {

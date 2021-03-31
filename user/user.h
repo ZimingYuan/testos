@@ -12,3 +12,4 @@ isize fork();
 isize wait(int *);
 isize waitpid(usize, int *);
 isize exec(char *);
+isize gets(char *, usize);
