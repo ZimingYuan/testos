@@ -1,24 +1,25 @@
 #include "kernel.h"
+#include "queue.h"
 
 PhysPageNum fcurrent, fend;
-struct fnode {
-    struct list lnode;
-    usize ppn;
-};
-struct list *frecycled;
+typedef struct flist {
+    PhysPageNum ppn; LIST_ENTRY(flist) entries;
+} flist;
+LIST_HEAD(flist_head, flist);
+struct flist_head frecycled;
 usize frame_num;
 void frame_init() {
     extern char ekernel;
     fcurrent = CEIL((usize)&ekernel);
     fend = FLOOR(MEMORY_END);
-    frecycled = bd_malloc(sizeof(struct list));
-    lst_init(frecycled);
+    LIST_INIT(&frecycled);
     frame_num = fend - fcurrent;
 }
 PhysPageNum frame_alloc() {
     PhysPageNum ppn;
-    if (! lst_empty(frecycled)) {
-        struct fnode *x = lst_pop(frecycled);
+    if (! LIST_EMPTY(&frecycled)) {
+        flist *x = LIST_FIRST(&frecycled);
+        LIST_REMOVE(x, entries);
         ppn = x->ppn; bd_free(x);
     } else {
         if (fcurrent == fend) panic("frame_alloc: no free physical page");
@@ -30,11 +31,12 @@ PhysPageNum frame_alloc() {
 }
 void frame_dealloc(PhysPageNum ppn) {
     if (ppn >= fcurrent) goto fail;
-    for (struct list *p = frecycled->next; p != frecycled; p = p->next) {
-        if (((struct fnode *)p)->ppn == ppn) goto fail;
+    flist *x;
+    LIST_FOREACH(x, &frecycled, entries) {
+        if (x->ppn == ppn) goto fail;
     }
-    struct fnode *x = bd_malloc(sizeof(struct fnode));
-    x->ppn = ppn; lst_push(frecycled, x);
+    x = bd_malloc(sizeof(flist));
+    x->ppn = ppn; LIST_INSERT_HEAD(&frecycled, x, entries);
     // printf("frame_dealloc:remain%d\n", ++frame_num);
     return;
 fail: panic("frame_dealloc failed!");
