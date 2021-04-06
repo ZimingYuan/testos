@@ -1,26 +1,20 @@
 #include "kernel.h"
-#include "queue.h"
 
 PhysPageNum fcurrent, fend;
-typedef struct flist {
-    PhysPageNum ppn; LIST_ENTRY(flist) entries;
-} flist;
-LIST_HEAD(flist_head, flist);
-struct flist_head frecycled;
+struct vector frecycled;
 usize frame_num;
 void frame_init() {
     extern char ekernel;
     fcurrent = CEIL((usize)&ekernel);
     fend = FLOOR(MEMORY_END);
-    LIST_INIT(&frecycled);
+    vector_new(&frecycled, sizeof(PhysPageNum));
     frame_num = fend - fcurrent;
 }
 PhysPageNum frame_alloc() {
     PhysPageNum ppn;
-    if (! LIST_EMPTY(&frecycled)) {
-        flist *x = LIST_FIRST(&frecycled);
-        LIST_REMOVE(x, entries);
-        ppn = x->ppn; bd_free(x);
+    if (! vector_empty(&frecycled)) {
+        ppn = *(PhysPageNum *)vector_back(&frecycled);
+        vector_pop(&frecycled);
     } else {
         if (fcurrent == fend) panic("frame_alloc: no free physical page");
         else ppn = fcurrent++;
@@ -31,12 +25,10 @@ PhysPageNum frame_alloc() {
 }
 void frame_dealloc(PhysPageNum ppn) {
     if (ppn >= fcurrent) goto fail;
-    flist *x;
-    LIST_FOREACH(x, &frecycled, entries) {
-        if (x->ppn == ppn) goto fail;
-    }
-    x = bd_malloc(sizeof(flist));
-    x->ppn = ppn; LIST_INSERT_HEAD(&frecycled, x, entries);
+    PhysPageNum *x = (PhysPageNum *)frecycled.buffer;
+    for (int i = 0; i < frecycled.size; i++)
+        if (x[i] == ppn) goto fail;
+    vector_push(&frecycled, &ppn);
     // printf("frame_dealloc:remain%d\n", ++frame_num);
     return;
 fail: panic("frame_dealloc failed!");

@@ -30,10 +30,6 @@ struct TaskContext {
     usize ra, s[12];
 };
 typedef struct TaskContext TaskContext;
-struct list {
-  struct list *next;
-  struct list *prev;
-};
 typedef usize PhysAddr;
 typedef usize VirtAddr;
 typedef usize PhysPageNum;
@@ -78,6 +74,10 @@ void set_next_trigger();
 usize get_time_ms();
 
 // list.c
+struct list {
+  struct list *next;
+  struct list *prev;
+};
 void lst_init(struct list*);
 void lst_remove(struct list*);
 void lst_push(struct list*, void *);
@@ -111,6 +111,18 @@ void copy_virt_area(PhysPageNum, PhysPageNum, VirtAddr, VirtAddr, VirtAddr);
 void free_pagetable(PhysPageNum);
 void map_trampoline(PhysPageNum);
 
-//trap.c
+// trap.c
 void trap_handler();
 void trap_return();
+
+// vector.c
+struct vector {
+    usize size, capacity, dsize;
+    char *buffer;
+};
+void vector_new(struct vector *, usize);
+void vector_push(struct vector *, void *);
+void vector_pop(struct vector *);
+void *vector_back(struct vector *);
+int vector_empty(struct vector *);
+void vector_free(struct vector *);

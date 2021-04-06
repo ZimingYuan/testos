@@ -1,33 +1,26 @@
 #include "kernel.h"
-#include "queue.h"
 
 usize pcurrent;
-typedef struct plist {
-    usize pid; LIST_ENTRY(plist) entries;
-} plist;
-LIST_HEAD(plist_head, plist);
-struct plist_head precycled;
+struct vector precycled;
 void pid_init() {
     pcurrent = 0;
-    LIST_INIT(&precycled);
+    vector_new(&precycled, sizeof(usize));
 }
 usize pid_alloc() {
     usize pid;
-    if (! LIST_EMPTY(&precycled)) {
-        plist *x = LIST_FIRST(&precycled);
-        LIST_REMOVE(x, entries);
-        pid = x->pid; bd_free(x);
+    if (! vector_empty(&precycled)) {
+        pid = *(usize *)vector_back(&precycled);
+        vector_pop(&precycled);
     } else pid = pcurrent++;
     return pid;
 }
 void pid_dealloc(usize pid) {
     if (pid >= pcurrent) goto fail;
-    plist *x;
-    LIST_FOREACH(x, &precycled, entries) {
-        if (x->pid == pid) goto fail;
+    usize *x = (usize *)precycled.buffer;
+    for (int i = 0; i < precycled.size; i++) {
+        if (x[i] == pid) goto fail;
     }
-    x = bd_malloc(sizeof(plist));
-    x->pid = pid; LIST_INSERT_HEAD(&precycled, x, entries);
+    vector_push(&precycled, &pid);
     return;
 fail: panic("pid_dealloc failed!");
 }
