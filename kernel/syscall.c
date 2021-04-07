@@ -2,28 +2,21 @@
 #include "filec.h"
 
 isize sys_write(usize fd, char *buffer, usize len) {
-    switch (fd) {
-        case FD_STDOUT: {
-            char *pbuffer = bd_malloc(len + 1); pbuffer[len] = '\0';
-            copy_area(current_user_pagetable(), (VirtAddr)buffer, pbuffer, len, 0);
-            printf(pbuffer); bd_free(pbuffer); return (isize)len;
-        }
-    }
+    File *f = current_user_file(fd); if (!f) return -1;
+    char *pbuffer = bd_malloc(len + 1); pbuffer[len] = '\0';
+    copy_area(current_user_pagetable(), (VirtAddr)buffer, pbuffer, len, 0);
+    usize r = f->write(f, pbuffer, len);
+    bd_free(pbuffer); return (isize)r;
 }
 isize sys_read(usize fd, char *buffer, usize len) {
-    switch (fd) {
-        case FD_STDIN: {
-            char *pbuffer = bd_malloc(len);
-            for (int i = 0; i < len; i++) {
-                char c;
-                while (!(c = console_getchar()))
-                     suspend_current_and_run_next();
-                pbuffer[i] = c;
-            }
-            copy_area(current_user_pagetable(), (VirtAddr)buffer, pbuffer, len, 1);
-            bd_free(pbuffer); return (isize)len;
-        }
-    }
+    File *f = current_user_file(fd); if (!f) return -1;
+    char *pbuffer = bd_malloc(len); usize r = f->read(f, pbuffer, len);
+    copy_area(current_user_pagetable(), (VirtAddr)buffer, pbuffer, len, 1);
+    bd_free(pbuffer); return (isize)r;
+}
+isize sys_close(usize fd) {
+    File *f = current_user_file(fd); if (!f) return -1;
+    f->close(f); return 0;
 }
 isize sys_yield() {
     suspend_current_and_run_next();
@@ -78,4 +71,13 @@ isize sys_gets(char *buffer, usize maxlen) {
     }
 over:   copy_area(current_user_pagetable(), (VirtAddr)buffer, pbuffer, maxlen + 1, 1);
         bd_free(pbuffer); return len;
+}
+isize sys_pipe(usize *pipe) {
+    usize t[2]; make_pipe(t);
+    copy_area(current_user_pagetable(), (VirtAddr)pipe,
+            t, 2 * sizeof(usize), 1);
+    return 0;
+}
+isize sys_getpid() {
+    return (isize)getpid();
 }

@@ -7,6 +7,8 @@ isize syscall(usize syscall_id, usize args0, usize args1, usize args2) {
             return sys_write(args0, (char *)args1, args2);
         case SYSCALL_READ:
             return sys_read(args0, (char *)args1, args2);
+        case SYSCALL_CLOSE:
+            return sys_close(args0);
         case SYSCALL_EXIT:
             return sys_exit((int)args0);
         case SYSCALL_YIELD:
@@ -21,6 +23,10 @@ isize syscall(usize syscall_id, usize args0, usize args1, usize args2) {
             return sys_waitpid(args0, (int *)args1);
         case SYSCALL_GETS:
             return sys_gets((char *)args0, args1);
+        case SYSCALL_PIPE:
+            return sys_pipe((usize *)args0);
+        case SYSCALL_GETPID:
+            return sys_getpid();
         default:
             printf("%p\n", syscall_id);
             panic("Other syscall");

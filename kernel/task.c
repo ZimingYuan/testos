@@ -5,17 +5,17 @@ enum TaskStatus {
     UnInit, Ready, Running, Exited, Zombie
 };
 typedef struct TaskControlBlock TaskControlBlock;
-typedef struct tlist {
-    TaskControlBlock *tcb;
-    LIST_ENTRY(tlist) entries;
-} tlist;
-LIST_HEAD(tlist_head, tlist);
 typedef struct TaskControlBlock {
     usize pid; PhysPageNum pagetable;
     enum TaskStatus task_status; usize base_size; int exit_code;
     PhysAddr task_cx_ptr; PhysPageNum trap_cx_ppn;
-    struct TaskControlBlock *parent; struct tlist_head children;
+    struct TaskControlBlock *parent; struct list children;
+    struct vector fd_table;
 } TaskControlBlock;
+typedef struct tlist {
+    struct list lst; TaskControlBlock *tcb;
+} tlist;
+
 TaskControlBlock *alloc_proc() {
     PhysPageNum user_pagetable = frame_alloc();
     TaskControlBlock *tcb = bd_malloc(sizeof(TaskControlBlock));
@@ -38,7 +38,19 @@ TaskControlBlock *alloc_proc() {
     PageTableEntry *pte_p = find_pte(user_pagetable, FLOOR(TRAP_CONTEXT), 0);
     tcb->trap_cx_ppn = PTE2PPN(*pte_p);
     tcb->parent = 0;
-    LIST_INIT(&tcb->children);
+    lst_init(&tcb->children);
+    // std io file desc
+    vector_new(&tcb->fd_table, sizeof(File));
+    File t; t.occupied = 1;
+    t.read = std_read; t.write = illegal_rw;
+    t.copy = illegal_c; t.close = illegal_c;
+    vector_push(&tcb->fd_table, &t);
+    t.read = illegal_rw; t.write = std_write;
+    t.copy = illegal_c; t.close = illegal_c;
+    vector_push(&tcb->fd_table, &t);
+    vector_push(&tcb->fd_table, &t);
+
+    return tcb;
 }
 void user_init(TaskControlBlock *tcb, char *name) {
     usize entry_point;
@@ -56,23 +68,15 @@ void user_init(TaskControlBlock *tcb, char *name) {
     trap_cx->trap_handler = (usize)trap_handler;
 }
 
-typedef struct tqueue {
-    TaskControlBlock *tcb;
-    TAILQ_ENTRY(tqueue) entries;
-} tqueue;
-TAILQ_HEAD(tqueue_head, tqueue);
+struct queue tqueue;
 TaskControlBlock *initproc;
-struct tqueue_head t_head;
 void add_task(TaskControlBlock *task) {
-    tqueue *x = bd_malloc(sizeof(tqueue)); x->tcb = task;
-    TAILQ_INSERT_TAIL(&t_head, x, entries);
+    queue_push(&tqueue, &task);
 }
 TaskControlBlock *fetch_task() {
-    if (TAILQ_EMPTY(&t_head)) return 0;
-    tqueue *x = TAILQ_FIRST(&t_head);
-    TAILQ_REMOVE(&t_head, x, entries);
-    TaskControlBlock *y = x->tcb;
-    bd_free(x); return y;
+    if (queue_empty(&tqueue)) return 0;
+    TaskControlBlock *x = *(TaskControlBlock **)queue_front(&tqueue);
+    queue_pop(&tqueue); return x;
 }
 
 typedef struct Processor {
@@ -98,27 +102,14 @@ void schedule(usize *switched_task_cx_ptr2) {
 }
 
 void task_init_and_run() {
-    TAILQ_INIT(&t_head); pid_init();
-    initproc = alloc_proc();
+    queue_new(&tqueue, sizeof(TaskControlBlock *));
+    pid_init(); initproc = alloc_proc();
     user_init(initproc, "initproc");
     // fill task context
     TaskContext *task_cx_ptr = (TaskContext *)initproc->task_cx_ptr;
     task_cx_ptr->ra = (usize)trap_return; 
     memset(task_cx_ptr->s, 0, sizeof(usize) * 12);
     add_task(initproc); run(&PROCESSOR);
-}
-
-PhysPageNum current_user_pagetable() {
-    return PROCESSOR.current->pagetable;
-}
-TrapContext *current_user_trap_cx() {
-    return (TrapContext *)PPN2PA(PROCESSOR.current->trap_cx_ppn);
-}
-
-void suspend_current_and_run_next() {
-    TaskControlBlock *tcb = PROCESSOR.current;
-    tcb->task_status = Ready; add_task(tcb);
-    schedule(&tcb->task_cx_ptr);
 }
 void free_uvm(TaskControlBlock *tcb) {
     unmap_area(tcb->pagetable, 0, tcb->base_size, 1);
@@ -127,19 +118,23 @@ void free_uvm(TaskControlBlock *tcb) {
     // free user pagetable
     free_pagetable(tcb->pagetable);
 }
+
+void suspend_current_and_run_next() {
+    TaskControlBlock *tcb = PROCESSOR.current;
+    tcb->task_status = Ready; add_task(tcb);
+    schedule(&tcb->task_cx_ptr);
+}
 void exit_current_and_run_next(int exit_code) {
     TaskControlBlock *tcb = PROCESSOR.current;
     tcb->task_status = Zombie;
     tcb->exit_code = exit_code;
-    while (! LIST_EMPTY(&tcb->children)) {
-        tlist *child = LIST_FIRST(&tcb->children);
-        child->tcb->parent = initproc;
-        LIST_REMOVE(child, entries);
-        LIST_INSERT_HEAD(&initproc->children, child, entries);
+    while (! lst_empty(&tcb->children)) {
+        tlist *child = (tlist *)tcb->children.next;
+        child->tcb->parent = initproc; lst_pop(&tcb->children);
+        lst_push(&initproc->children, (struct list *)child);
     }
     free_uvm(tcb); usize _unused = 0; schedule(&_unused);
 }
-
 usize fork() {
     TaskControlBlock *p = PROCESSOR.current;
     TaskControlBlock *tcb = alloc_proc();
@@ -151,7 +146,12 @@ usize fork() {
     tcb->base_size = p->base_size; tcb->parent = p;
     // add children to parent
     tlist *x = bd_malloc(sizeof(tlist)); x->tcb = tcb;
-    LIST_INSERT_HEAD(&p->children, x, entries);
+    lst_push(&p->children, (struct list *)x);
+    // copy file desc
+    File *t = (File *)p->fd_table.buffer;
+    for (int i = 3; i < p->fd_table.size; i++) {
+        t[i].copy(t + i); vector_push(&tcb->fd_table, t + i);
+    }
     // fill task context
     TaskContext *task_cx_ptr = (TaskContext *)tcb->task_cx_ptr;
     task_cx_ptr->ra = (usize)trap_return; 
@@ -171,8 +171,9 @@ isize exec(char *name) {
 }
 isize waitpid(isize pid, int *exit_code) {
     TaskControlBlock *p = PROCESSOR.current;
-    tlist *child;
-    LIST_FOREACH(child, &p->children, entries) {
+    for (struct list *lst = p->children.next;
+            lst != &p->children; lst = lst->next) {
+        tlist *child = (tlist *)lst;
         if (pid == -1 || (usize)pid == child->tcb->pid) {
             if (child->tcb->task_status == Zombie) {
                 *exit_code = child->tcb->exit_code;
@@ -181,15 +182,40 @@ isize waitpid(isize pid, int *exit_code) {
                 VirtAddr bottom = top - KERNEL_STACK_SIZE;
                 extern PhysPageNum kernel_pagetable;
                 unmap_area(kernel_pagetable, bottom, top, 1);
-                pid_dealloc(pid); bd_free(child->tcb);
-                LIST_REMOVE(child, entries); bd_free(child);
+                pid_dealloc(pid); vector_free(&child->tcb->fd_table);
+                bd_free(child->tcb);
+                lst_remove(lst); bd_free(child);
                 return pid;
             } else return -2;
         }
     }
     return -1;
 }
+usize getpid() {
+    return PROCESSOR.current->pid;
+}
 
+PhysPageNum current_user_pagetable() {
+    return PROCESSOR.current->pagetable;
+}
+TrapContext *current_user_trap_cx() {
+    return (TrapContext *)PPN2PA(PROCESSOR.current->trap_cx_ppn);
+}
+File *current_user_file(usize fd) {
+    struct vector *ftb = &PROCESSOR.current->fd_table;
+    File *a = (File *)ftb->buffer;
+    if (fd >= ftb->size || a[fd].occupied == 0) return 0;
+    return (File *)ftb->buffer + fd;
+}
+File *alloc_fd(usize *fd) {
+    struct vector *ftb = &PROCESSOR.current->fd_table;
+    File *a = (File *)ftb->buffer;
+    for (usize i = 0; i < ftb->size; i++) if (a[i].occupied == 0) {
+        a[i].occupied = 1; *fd = i; return a + i;
+    }
+    File t; vector_push(ftb, &t);
+    *fd = ftb->size - 1; return vector_back(ftb);
+}
 void shutdown() {
     VirtAddr top = TRAMPOLINE - initproc->pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
     VirtAddr bottom = top - KERNEL_STACK_SIZE;

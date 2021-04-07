@@ -23,6 +23,9 @@ isize write(usize fd, char *buf, usize len) {
 isize read(usize fd, char *buf, usize len) {
     return syscall(SYSCALL_READ, fd, (usize)buf, len);
 }
+isize close(usize fd) {
+    return syscall(SYSCALL_CLOSE, fd, 0, 0);
+}
 void consputc(char x) {
     char s = x; write(FD_STDOUT, &s, 1);
 }
@@ -58,6 +61,12 @@ isize exec(char *path) {
 }
 isize gets(char *buf, usize maxlen) {
     return syscall(SYSCALL_GETS, (usize)buf, maxlen, 0);
+}
+isize pipe(usize *pipe) {
+    return syscall(SYSCALL_PIPE, (usize)pipe, 0, 0);
+}
+isize getpid() {
+    return syscall(SYSCALL_GETPID, 0, 0, 0);
 }
 int main();
 __attribute__((section(".text.entry")))

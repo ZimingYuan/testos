@@ -1,8 +1,6 @@
 #include "kernel.h"
 #define INIT_CAPACITY 8
 
-void bd_free(void*);
-void *bd_malloc(usize);
 void vector_new(struct vector *v, usize dsize) {
     v->size = 0; v->capacity = INIT_CAPACITY; v->dsize = dsize;
     v->buffer = bd_malloc(v->capacity * v->dsize);

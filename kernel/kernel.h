@@ -21,15 +21,21 @@
 #define PTE2FLAG(pte) ((unsigned char)((pte) & 255))
 #define PGTB2SATP(pgtb) ((8L << 60) | (pgtb))
 
-struct TrapContext {
+typedef struct TrapContext {
     usize x[32], sstatus, sepc;
     usize kernel_satp, kernel_sp, trap_handler;
-};
-typedef struct TrapContext TrapContext;
-struct TaskContext {
+} TrapContext;
+typedef struct TaskContext {
     usize ra, s[12];
-};
-typedef struct TaskContext TaskContext;
+} TaskContext;
+typedef struct File {
+    int occupied;
+    usize (*read)(struct File *, char *, usize);
+    usize (*write)(struct File *, char *, usize);
+    void (*copy)(struct File *);
+    void (*close)(struct File *);
+    void *bind;
+} File;
 typedef usize PhysAddr;
 typedef usize VirtAddr;
 typedef usize PhysPageNum;
@@ -45,14 +51,17 @@ void consputc(char x);
 
 // task.c
 void task_init_and_run();
-PhysPageNum current_user_pagetable();
-TrapContext *current_user_trap_cx();
 void suspend_current_and_run_next();
 void exit_current_and_run_next(int);
 usize fork();
 isize exec(char *);
 isize waitpid(isize, int *);
 void shutdown();
+PhysPageNum current_user_pagetable();
+TrapContext *current_user_trap_cx();
+File *current_user_file(usize);
+File *alloc_fd(usize *);
+usize getpid();
 
 // loader.c
 void from_elf(char *, PhysPageNum, usize *, usize *);
@@ -61,6 +70,7 @@ char *get_app_data_by_name(char *);
 // syscall.c
 isize sys_write(usize, char *, usize);
 isize sys_read(usize, char *, usize);
+isize sys_close(usize);
 isize sys_exit(int);
 isize sys_yield();
 isize sys_get_time();
@@ -68,6 +78,8 @@ isize sys_fork();
 isize sys_exec(char *, usize);
 isize sys_waitpid(isize, int *);
 isize sys_gets(char *, usize);
+isize sys_pipe(usize *);
+isize sys_getpid();
 
 // timer.c
 void set_next_trigger();
@@ -126,3 +138,22 @@ void vector_pop(struct vector *);
 void *vector_back(struct vector *);
 int vector_empty(struct vector *);
 void vector_free(struct vector *);
+
+// queue.c
+struct queue {
+    usize size, front, tail, capacity, dsize;
+    char *buffer;
+};
+void queue_new(struct queue *, usize);
+void queue_push(struct queue *, void *);
+void queue_pop(struct queue *);
+void *queue_front(struct queue *);
+int queue_empty(struct queue *);
+void queue_free(struct queue *);
+
+// file.c
+usize std_read(File *, char *, usize);
+usize std_write(File *, char *, usize);
+usize illegal_rw(File *, char *, usize);
+void illegal_c(File *);
+void make_pipe(usize *);

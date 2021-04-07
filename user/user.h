@@ -3,6 +3,7 @@
 
 isize write(usize, char *, usize);
 isize read(usize, char *, usize);
+isize close(usize);
 char getchar();
 void consputc(char);
 isize exit(int);
@@ -13,3 +14,5 @@ isize wait(int *);
 isize waitpid(usize, int *);
 isize exec(char *);
 isize gets(char *, usize);
+isize pipe(usize *);
+isize getpid();
