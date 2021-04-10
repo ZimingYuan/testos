@@ -138,8 +138,6 @@ void vector_pop(struct vector *);
 void *vector_back(struct vector *);
 int vector_empty(struct vector *);
 void vector_free(struct vector *);
-
-// queue.c
 struct queue {
     usize size, front, tail, capacity, dsize;
     char *buffer;
