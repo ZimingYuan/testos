@@ -56,8 +56,8 @@ isize waitpid(usize pid, int *exit_code) {
         if (exit_pid == -2) yield(); else return exit_pid;
     }
 }
-isize exec(char *path) {
-    return syscall(SYSCALL_EXEC, (usize)path, strlen(path), 0);
+isize exec(char *path, char **argv) {
+    return syscall(SYSCALL_EXEC, (usize)path, (usize)argv, 0);
 }
 isize gets(char *buf, usize maxlen) {
     return syscall(SYSCALL_GETS, (usize)buf, maxlen, 0);
@@ -65,11 +65,14 @@ isize gets(char *buf, usize maxlen) {
 isize pipe(usize *pipe) {
     return syscall(SYSCALL_PIPE, (usize)pipe, 0, 0);
 }
+isize open(char *path, usize flags) {
+    return syscall(SYSCALL_OPEN, (usize)path, flags, 0);
+}
 isize getpid() {
     return syscall(SYSCALL_GETPID, 0, 0, 0);
 }
-int main();
+int main(int argc, char **argv);
 __attribute__((section(".text.entry")))
-void _start() {
-    exit(main());
+void _start(int argc, char **argv) {
+    exit(main(argc, argv));
 }

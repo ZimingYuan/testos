@@ -12,10 +12,10 @@ void from_elf(char *elf_data, PhysPageNum user_pgtb, usize *user_size, usize *en
     for (int i = 0; i < elf->phnum; i++) { // per program section
         struct proghdr *ph = (struct proghdr *)(elf_data + offset);
         if(ph->type != ELF_PROG_LOAD) continue;
-        PTEFlags flags = U;
-        if (ph->flags & ELF_PROG_FLAG_EXEC) flags |= X;
-        if (ph->flags & ELF_PROG_FLAG_WRITE) flags |= W;
-        if (ph->flags & ELF_PROG_FLAG_READ) flags |= R;
+        PTEFlags flags = PTE_U;
+        if (ph->flags & ELF_PROG_FLAG_EXEC) flags |= PTE_X;
+        if (ph->flags & ELF_PROG_FLAG_WRITE) flags |= PTE_W;
+        if (ph->flags & ELF_PROG_FLAG_READ) flags |= PTE_R;
         // map and copy program data and code
         map_area(user_pgtb, ph->vaddr, ph->vaddr + ph->memsz, flags, 1);
         copy_area(user_pgtb, ph->vaddr, elf_data + ph->off, ph->filesz, 1);
@@ -24,46 +24,45 @@ void from_elf(char *elf_data, PhysPageNum user_pgtb, usize *user_size, usize *en
             max_end_vpn = CEIL(ph->vaddr + ph->memsz);
         offset += sizeof(struct proghdr);
     }
-    // map user stack(in user space)
-    // VirtAddr user_stack_bottom = PPN2PA(max_end_vpn) + PAGE_SIZE;
-    // VirtAddr user_stack_top = user_stack_bottom + USER_STACK_SIZE;
-    // map_area(user_pgtb, user_stack_bottom, user_stack_top, R | W | U, 1);
-    // map trap context
-    // map_area(user_pgtb, TRAP_CONTEXT, TRAMPOLINE, R | W, 1);
     *entry_point = elf->entry; *user_size = PPN2PA(max_end_vpn);
-}
-char **APP_NAMES; extern usize _num_app;
-void load_app_names() {
-    extern char _app_names; char *start = &_app_names;
-    APP_NAMES = bd_malloc(_num_app * sizeof(char *));
-    for (int i = 0; i < _num_app; i++) {
-        APP_NAMES[i] = start; while (*start) start++; start++;
-    }
+    bd_free(elf_data);
 }
 char *get_app_data_by_name(char *name) {
-    for (int i = 0; i < _num_app; i++)
-        if (strcmp(name, APP_NAMES[i]) == 0) {
-            return (char *)(&_num_app + 1)[i];
-        }
-    return 0;
+    usize len = strlen(name); char *s = bd_malloc(len + 2);
+    s[0] = '/'; memcpy(s + 1, name, len); s[len + 1] = '\0';
+    FNode *fn = inode_get(s, 0); bd_free(s); if (!fn) return 0;
+    len = *(int *)(fn->dinode + 4); s = bd_malloc(len);
+    fn->offset = 0; inode_read(fn, s, len); bd_free(fn);
+    if (((struct elfhdr *)s)->magic != ELF_MAGIC) return 0;
+    return s;
 }
-void list_apps() {
-    printf("/**** APPS ****\n");
-    for (int i = 0; i < _num_app; i++)
-        printf("%s\n", APP_NAMES[i]);
-    printf("**************/\n");
+void list_root() {
+    FNode *fn = inode_get("/", 0); int len;
+    char *s = inode_list(fn, &len);
+    printf("**** ROOT ****\n");
+    for (int i = 0; i < len; i += strlen(s + i) + 1)
+        printf("%s\n", s + i);
+    printf("**************\n");
+    bd_free(s); bd_free(fn);
 }
 void load_all() {
-    // load heap buffer
+    // set kernel trap
+    void __kerneltrap();
+    asm volatile("csrw stvec, %0"::"r"(__kerneltrap));
+    // init heap buffer
     bd_init(HEAP_SPACE, HEAP_SPACE + KERNEL_HEAP_SIZE);
-    // load kernel virtual memory
+    // init kernel virtual memory
     kvm_init();
-    // load app names
-    load_app_names(); list_apps();
-    // load timer interrupt
+    // init external interrupt
+    plicinit(); plicinithart(); kernel_intr_switch(1);
     usize sie; asm volatile("csrr %0, sie":"=r"(sie));
-    sie |= (1 << 5); asm volatile("csrw sie, %0"::"r"(sie));
+    sie |= (1 << 9); asm volatile("csrw sie, %0"::"r"(sie));
+    // init file system
+    virtio_disk_init(); init_ext2();
+    // list app names
+    list_root();
+    // init timer interrupt
     set_next_trigger();
-    // load tasks
+    // init tasks
     task_init_and_run();
 }

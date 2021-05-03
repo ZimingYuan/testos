@@ -1,9 +1,11 @@
 #include "kernel.h"
+#include "filec.h"
 
-typedef struct Pipe {
-    usize refcnt, wrefcnt;
-    struct queue q;
-} Pipe;
+usize illegal_rw(File *self, char *buffer, usize len) {
+    return -1;
+}
+void illegal_c(File *self) {
+}
 
 usize std_write(File *self, char *buffer, usize len) {
     printf(buffer); return len;
@@ -17,11 +19,11 @@ usize std_read(File *self, char *buffer, usize len) {
     }
     return len;
 }
-usize illegal_rw(File *self, char *buffer, usize len) {
-    return -1;
-}
-void illegal_c(File *self) {
-}
+
+typedef struct Pipe {
+    usize refcnt, wrefcnt;
+    struct queue q;
+} Pipe;
 usize pipe_read(File *self, char *buffer, usize len) {
     Pipe *p = (Pipe *)self->bind;
     for (int i = 0; i < len; i++) {
@@ -61,4 +63,38 @@ void make_pipe(usize *p) {
     f = alloc_fd(p + 1); f->bind = (void *)t;
     f->read = illegal_rw; f->write = pipe_write;
     f->copy = pipe_copy; f->close = pipe_close;
+}
+
+usize fnode_write(File *self, char *buffer, usize len) {
+    len = inode_write((FNode *)self->bind, buffer, len);
+    return len;
+}
+usize fnode_read(File *self, char *buffer, usize len) {
+    len = inode_read((FNode *)self->bind, buffer, len);
+    return len;
+}
+void fnode_copy(File *self) {
+    ((FNode *)self->bind)->refcnt++;
+}
+void fnode_close(File *self) {
+    FNode *i = (FNode *)self->bind;
+    self->occupied = 0; i->refcnt--; bcache_save();
+    if (i->refcnt == 0) bd_free(i);
+}
+isize make_fnode(char *path, usize flags) {
+    FNode *i;
+    if (flags & O_CREAT) {
+        i = inode_get(path, 1);
+        inode_clear(i);
+    } else {
+        i = inode_get(path, 0); if (!i) return -1;
+        if (flags & O_TRUNC) inode_clear(i);
+    }
+    i->refcnt = 1; i->offset = 0; usize fd;
+    File *f = alloc_fd(&fd); f->bind = (void *)i;
+    f->read = fnode_read; f->write = fnode_write;
+    if (flags & O_RDONLY) f->write = illegal_rw;
+    if (flags & O_WRONLY) f->read = illegal_rw;
+    f->copy = fnode_copy; f->close = fnode_close;
+    return fd;
 }

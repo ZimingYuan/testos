@@ -12,6 +12,7 @@ int main() {
         }
         while (get_time() < w) yield();
     }
-    if (p == 0) exec("hello_world2"); else exec("hello_world1");
+    if (p == 0) exec("hello_world2", "hello_world2");
+    else exec("hello_world1", "hello_world1");
     return 0;
 }

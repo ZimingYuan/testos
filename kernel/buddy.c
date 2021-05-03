@@ -1,11 +1,6 @@
 // Most of this file is copy from xv6-riscv-fall19 lab alloc(https://github.com/mit-pdos/xv6-riscv-fall19/tree/alloc)
 #include "kernel.h"
 
-struct spinlock {};
-void initlock(struct spinlock *a, char *b) {}
-void acquire(struct spinlock *a) {}
-void release(struct spinlock *a) {}
-
 // Buddy allocator
 
 static int nsizes;     // the number of entries in bd_sizes array

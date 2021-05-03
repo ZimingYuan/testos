@@ -9,10 +9,10 @@ PageTableEntry *find_pte(PhysPageNum root, VirtPageNum vpn, int create) {
     for (int i = 0; i < 3; i++) {
         PageTableEntry *pte_p = (PageTableEntry *)PPN2PA(root) + idx[i];
         if (i == 2) return pte_p;
-        if (!(*pte_p & V)) {
+        if (!(*pte_p & PTE_V)) {
             if (! create) panic("find_pte failed");
             PhysPageNum frame = frame_alloc();
-            *pte_p = PPN2PTE(frame, V);
+            *pte_p = PPN2PTE(frame, PTE_V);
         }
         root = PTE2PPN(*pte_p);
     }
@@ -20,13 +20,13 @@ PageTableEntry *find_pte(PhysPageNum root, VirtPageNum vpn, int create) {
 }
 void map(PhysPageNum root, VirtPageNum vpn, PhysPageNum ppn, PTEFlags flags) {
     PageTableEntry *pte_p = find_pte(root, vpn, 1);
-    if (*pte_p & V)
+    if (*pte_p & PTE_V)
         panic("map: vpn is mapped before mapping!");
-    *pte_p = PPN2PTE(ppn, flags | V);
+    *pte_p = PPN2PTE(ppn, flags | PTE_V);
 }
 PhysPageNum unmap(PhysPageNum root, VirtPageNum vpn) {
     PageTableEntry *pte_p = find_pte(root, vpn, 0);
-    if (!(*pte_p & V))
+    if (!(*pte_p & PTE_V))
         panic("unmap: vpn is invalid before unmapping");
     PhysPageNum ppn = PTE2PPN(*pte_p);
     *pte_p = 0; return ppn;
@@ -44,7 +44,7 @@ void unmap_area(PhysPageNum root, VirtAddr start_va, VirtAddr end_va, int deallo
         PhysPageNum ppn = unmap(root, i); if (dealloc) frame_dealloc(ppn);
     }
 }
-void copy_area(PhysPageNum root, VirtAddr start_va, void *data, int len, int to_va) {
+void copy_area(PhysPageNum root, VirtAddr start_va, void *data, usize len, int to_va) {
     char *cdata = (char *)data; VirtPageNum vpn = FLOOR(start_va);
     while (len) {
         usize frame_off = start_va > PPN2PA(vpn) ? start_va - PPN2PA(vpn) : 0;
@@ -62,7 +62,7 @@ void copy_virt_area(PhysPageNum dstp, PhysPageNum srcp, VirtAddr dst_st, VirtAdd
         PageTableEntry *src_pte_p = find_pte(srcp, i, 0);
         PhysAddr src_pa = PPN2PA(PTE2PPN(*src_pte_p));
         PageTableEntry *dst_pte_p = find_pte(dstp, i - src_st_vpn + dst_st_vpn, 1);
-        if (!(*dst_pte_p & V)) {
+        if (!(*dst_pte_p & PTE_V)) {
             PhysPageNum ppn = frame_alloc();
             *dst_pte_p = PPN2PTE(ppn, PTE2FLAG(*src_pte_p));
         }
@@ -72,13 +72,13 @@ void copy_virt_area(PhysPageNum dstp, PhysPageNum srcp, VirtAddr dst_st, VirtAdd
 }
 void map_trampoline(PhysPageNum root) {
     extern char strampoline;
-    map(root, FLOOR(TRAMPOLINE), FLOOR((PhysAddr)&strampoline), R | X);
+    map(root, FLOOR(TRAMPOLINE), FLOOR((PhysAddr)&strampoline), PTE_R | PTE_X);
 }
 void free_pagetable(PhysPageNum root) {
     PageTableEntry *pte_p = (PageTableEntry *)PPN2PA(root);
     for (int i = 0; i < 512; i++) {
-        if (pte_p[i] & V) {
-            if (!(pte_p[i] & R) && !(pte_p[i] & W) && !(pte_p[i] & X))
+        if (pte_p[i] & PTE_V) {
+            if (!(pte_p[i] & PTE_R) && !(pte_p[i] & PTE_W) && !(pte_p[i] & PTE_X))
                 free_pagetable(PTE2PPN(pte_p[i]));
         }
     }
@@ -90,11 +90,13 @@ void kvm_init() {
     extern char stext, etext, srodata, erodata, sdata, edata,
            sbss_with_stack, ebss, ekernel;
     map_trampoline(kernel_pagetable);
-    map_area(kernel_pagetable, (VirtAddr)&stext, (VirtAddr)&etext, R | X, 0);
-    map_area(kernel_pagetable, (VirtAddr)&srodata, (VirtAddr)&erodata, R, 0);
-    map_area(kernel_pagetable, (VirtAddr)&sdata, (VirtAddr)&edata, R | W, 0);
-    map_area(kernel_pagetable, (VirtAddr)&sbss_with_stack, (VirtAddr)&ebss, R | W, 0);
-    map_area(kernel_pagetable, (VirtAddr)&ekernel, MEMORY_END, R | W, 0);
+    map_area(kernel_pagetable, (VirtAddr)&stext, (VirtAddr)&etext, PTE_R | PTE_X, 0);
+    map_area(kernel_pagetable, (VirtAddr)&srodata, (VirtAddr)&erodata, PTE_R, 0);
+    map_area(kernel_pagetable, (VirtAddr)&sdata, (VirtAddr)&edata, PTE_R | PTE_W, 0);
+    map_area(kernel_pagetable, (VirtAddr)&sbss_with_stack, (VirtAddr)&ebss, PTE_R | PTE_W, 0);
+    map_area(kernel_pagetable, (VirtAddr)&ekernel, MEMORY_END, PTE_R | PTE_W, 0);
+    map_area(kernel_pagetable, (VirtAddr)VIRTIO0, (VirtAddr)VIRTIO0 + PAGE_SIZE, PTE_R | PTE_W, 0);
+    map_area(kernel_pagetable, (VirtAddr)PLIC, (VirtAddr)PLIC + 0x400000, PTE_R | PTE_W, 0);
     usize satp = PGTB2SATP(kernel_pagetable);
     asm volatile ("csrw satp, %0\nsfence.vma"::"r"(satp));
 }

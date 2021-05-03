@@ -13,5 +13,6 @@
 #define SYSCALL_PIPE 9
 #define SYSCALL_GETPID 10
 #define SYSCALL_CLOSE 11
+#define SYSCALL_OPEN 12
 
 #endif

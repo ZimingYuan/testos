@@ -31,10 +31,26 @@ isize sys_get_time() {
 isize sys_fork() {
     return fork();
 }
-isize sys_exec(char *name, usize len) {
-    char *pbuffer = bd_malloc(len + 1); pbuffer[len] = '\0';
-    copy_area(current_user_pagetable(), (VirtAddr)name, pbuffer, len, 0);
-    isize r = exec(pbuffer); bd_free(pbuffer); return r;
+isize sys_exec(char *name, char **argv) {
+    struct vector vname; vector_new(&vname, 1);
+    PhysAddr pgtbl = current_user_pagetable(); usize l = 0;
+    for (;;) {
+        char c; copy_area(pgtbl, (VirtAddr)name + l, &c, 1, 0); 
+        vector_push(&vname, &c); if (c == '\0') break; else l++;
+    }
+    struct vector vargv; vector_new(&vargv, 1); usize argc = 0;
+    for (;;) {
+        char *addr;
+        copy_area(pgtbl, (VirtAddr)argv + argc * sizeof(char *),
+                &addr, sizeof(char *), 0); 
+        if (!addr) break; else argc++; l = 0;
+        for (;;) {
+            char c; copy_area(pgtbl, (VirtAddr)addr + l, &c, 1, 0);
+            vector_push(&vargv, &c); if (c == '\0') break; else l++;
+        }
+    }
+    isize r = exec(vname.buffer, vargv.buffer, vargv.size);
+    vector_free(&vname); vector_free(&vargv); return r;
 }
 isize sys_waitpid(isize pid, int *exit_code) {
     int _exit_code; isize r = waitpid(pid, &_exit_code);
@@ -71,6 +87,16 @@ isize sys_gets(char *buffer, usize maxlen) {
     }
 over:   copy_area(current_user_pagetable(), (VirtAddr)buffer, pbuffer, maxlen + 1, 1);
         bd_free(pbuffer); return len;
+}
+isize sys_open(char *path, usize flags) {
+    struct vector vpath; vector_new(&vpath, 1);
+    PhysAddr pgtbl = current_user_pagetable(); usize l = 0;
+    for (;;) {
+        char c; copy_area(pgtbl, (VirtAddr)path + l, &c, 1, 0); 
+        vector_push(&vpath, &c); if (c == '\0') break; else l++;
+    }
+    isize r = make_fnode(vpath.buffer, flags);
+    vector_free(&vpath); return r;
 }
 isize sys_pipe(usize *pipe) {
     usize t[2]; make_pipe(t);

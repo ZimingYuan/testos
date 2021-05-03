@@ -1,6 +1,7 @@
 #include "user.h"
 
 int main() {
+    printf("initproc\n");
     int f = fork();
     if (f == 0) exec("user_shell");
     else {

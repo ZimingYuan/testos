@@ -1,8 +1,10 @@
 #include "user.h"
 
 #define LINE 1024
+#define ARGMAX 64
 
-char line[LINE + 1]; int linen;
+char line[LINE + 1];
+char *argv[ARGMAX]; int argc;
 
 int main() {
     printf("C user shell\n");
@@ -10,10 +12,21 @@ int main() {
     for (;;) {
         gets(line, LINE);
         if (! strcmp(line, "exit")) return 0;
+        int f = 0, l = strlen(line); argc = 0;
+        for (int i = 0; i < l; i++) {
+            if (line[i] == ' ') {
+                if (f) {
+                    line[i] = '\0'; f = 0;
+                }
+            } else if (!f) {
+                argv[argc++] = line + i; f = 1;
+            }
+        }
+        argv[argc] = 0;
         isize pid = fork();
         if (pid == 0) {
             // child process
-            if (exec(line) == -1) {
+            if (exec(line, argv) == -1) {
                 printf("Error when executing!\n");
                 return -4;
             }

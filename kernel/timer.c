@@ -13,3 +13,8 @@ void set_next_trigger() {
 usize get_time_ms() {
     return get_time() / (CLOCK_FREQ / MSEC_PER_SEC);
 }
+void time_intr_switch(int on) {
+    usize sie; asm volatile("csrr %0, sie":"=r"(sie));
+    if (on) sie |= (1 << 5); else sie &= ~(1 << 5);
+    asm volatile("csrw sie, %0"::"r"(sie));
+}

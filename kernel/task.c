@@ -25,9 +25,9 @@ TaskControlBlock *alloc_proc() {
     VirtAddr top = TRAMPOLINE - pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
     VirtAddr bottom = top - KERNEL_STACK_SIZE;
     extern PhysPageNum kernel_pagetable;
-    map_area(kernel_pagetable, bottom, top, R | W, 1);
-    map_area(user_pagetable, TRAP_CONTEXT, TRAMPOLINE, R | W, 1);
-    map_area(user_pagetable, TRAP_CONTEXT - USER_STACK_SIZE, TRAP_CONTEXT, R | W | U, 1);
+    map_area(kernel_pagetable, bottom, top, PTE_R | PTE_W, 1);
+    map_area(user_pagetable, TRAP_CONTEXT, TRAMPOLINE, PTE_R | PTE_W, 1);
+    map_area(user_pagetable, TRAP_CONTEXT - USER_STACK_SIZE, TRAP_CONTEXT, PTE_R | PTE_W | PTE_U, 1);
     // fill task context
     tcb->pid = pid;
     tcb->pagetable = user_pagetable;
@@ -52,13 +52,23 @@ TaskControlBlock *alloc_proc() {
 
     return tcb;
 }
-void user_init(TaskControlBlock *tcb, char *name) {
+void user_init(TaskControlBlock *tcb, char *name, char *argv, usize argv_len) {
     usize entry_point;
     from_elf(get_app_data_by_name(name), tcb->pagetable, &tcb->base_size, &entry_point);
+    // fill argv
+    VirtAddr user_sp = TRAP_CONTEXT - argv_len;
+    copy_area(tcb->pagetable, user_sp, argv, argv_len, 1);
+    struct vector vargv; vector_new(&vargv, sizeof(char *));
+    for (usize i = 0; i < argv_len; i += strlen(argv + i) + 1) {
+        char *t = argv + i; vector_push(&vargv, &t);
+    }
+    user_sp -= vargv.size * sizeof(char *);
+    copy_area(tcb->pagetable, user_sp, vargv.buffer,
+            vargv.size * sizeof(char *), 1);
     // fill trap context
     TrapContext *trap_cx = (TrapContext *)PPN2PA(tcb->trap_cx_ppn);
     memset(trap_cx->x, 0, sizeof(usize) * 32);
-    trap_cx->x[2] = TRAP_CONTEXT;
+    trap_cx->x[2] = trap_cx->x[11] = user_sp; trap_cx->x[10] = vargv.size;
     usize sstatus; asm volatile("csrr %0, sstatus":"=r"(sstatus));
     sstatus &= ~(1L << 8); trap_cx->sstatus = sstatus;
     trap_cx->sepc = entry_point;
@@ -66,6 +76,8 @@ void user_init(TaskControlBlock *tcb, char *name) {
     trap_cx->kernel_satp = PGTB2SATP(kernel_pagetable);
     trap_cx->kernel_sp = TRAMPOLINE - tcb->pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
     trap_cx->trap_handler = (usize)trap_handler;
+
+    vector_free(&vargv);
 }
 
 struct queue tqueue;
@@ -104,7 +116,7 @@ void schedule(usize *switched_task_cx_ptr2) {
 void task_init_and_run() {
     queue_new(&tqueue, sizeof(TaskControlBlock *));
     pid_init(); initproc = alloc_proc();
-    user_init(initproc, "initproc");
+    user_init(initproc, "initproc", "initproc", 9);
     // fill task context
     TaskContext *task_cx_ptr = (TaskContext *)initproc->task_cx_ptr;
     task_cx_ptr->ra = (usize)trap_return; 
@@ -121,6 +133,7 @@ void free_uvm(TaskControlBlock *tcb) {
 
 void suspend_current_and_run_next() {
     TaskControlBlock *tcb = PROCESSOR.current;
+    if (! tcb) return; // this function may be called before task init
     tcb->task_status = Ready; add_task(tcb);
     schedule(&tcb->task_cx_ptr);
 }
@@ -163,11 +176,11 @@ usize fork() {
 
     add_task(tcb); return tcb->pid;
 }
-isize exec(char *name) {
+isize exec(char *name, char *argv, usize argv_len) {
     if (! get_app_data_by_name(name)) return -1;
     TaskControlBlock *p = PROCESSOR.current;
     unmap_area(p->pagetable, 0, p->base_size, 1);
-    user_init(p, name);
+    user_init(p, name, argv, argv_len);
 }
 isize waitpid(isize pid, int *exit_code) {
     TaskControlBlock *p = PROCESSOR.current;
