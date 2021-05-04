@@ -237,8 +237,8 @@ int dfs_clear(int block_num, int dep) {
     int f = 0;
     for (int i = 0; i < BSIZE / 4; i++)
         if (dfs_clear(table[i], dep - 1)) { f = 1; break; }
-    bd_free(table);
-    return f;
+    memset(table, 0, BSIZE); bcache_rw(block_num, 0, BSIZE, table, 1);
+    bd_free(table); return f;
 }
 void inode_clear(FNode *fn) {
     TO32(fn->dinode + 4) = 0;
@@ -248,7 +248,7 @@ void inode_clear(FNode *fn) {
     if (dfs_clear(TO32(fn->dinode + 92), 2)) goto write;
     dfs_clear(TO32(fn->dinode + 96), 3);
 write:
-    upd_inode(fn->dnum, fn->dinode);
+    memset(fn->dinode + 40, 0, 60); upd_inode(fn->dnum, fn->dinode);
 }
 char* inode_list(FNode *fn, int *slen) {
     int size = TO32(dinode + 4); char *entry = bd_malloc(size);
