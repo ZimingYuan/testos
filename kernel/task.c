@@ -43,10 +43,10 @@ TaskControlBlock *alloc_proc() {
     vector_new(&tcb->fd_table, sizeof(File));
     File t; t.occupied = 1;
     t.read = std_read; t.write = illegal_rw;
-    t.copy = illegal_c; t.close = illegal_c;
+    t.copy = illegal_c; t.close = std_close;
     vector_push(&tcb->fd_table, &t);
     t.read = illegal_rw; t.write = std_write;
-    t.copy = illegal_c; t.close = illegal_c;
+    t.copy = illegal_c; t.close = std_close;
     vector_push(&tcb->fd_table, &t);
     vector_push(&tcb->fd_table, &t);
 
@@ -60,7 +60,7 @@ void user_init(TaskControlBlock *tcb, char *name, char *argv, usize argv_len) {
     copy_area(tcb->pagetable, user_sp, argv, argv_len, 1);
     struct vector vargv; vector_new(&vargv, sizeof(char *));
     for (usize i = 0; i < argv_len; i += strlen(argv + i) + 1) {
-        char *t = argv + i; vector_push(&vargv, &t);
+        char *t = (char *)user_sp + i; vector_push(&vargv, &t);
     }
     user_sp -= vargv.size * sizeof(char *);
     copy_area(tcb->pagetable, user_sp, vargv.buffer,
@@ -168,7 +168,6 @@ usize fork() {
     // fill task context
     TaskContext *task_cx_ptr = (TaskContext *)tcb->task_cx_ptr;
     task_cx_ptr->ra = (usize)trap_return; 
-    memset(task_cx_ptr->s, 0, sizeof(usize) * 12);
     // fill trap context
     TrapContext *trap_cx = (TrapContext *)PPN2PA(tcb->trap_cx_ppn);
     trap_cx->kernel_sp = TRAMPOLINE - tcb->pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
@@ -195,8 +194,12 @@ isize waitpid(isize pid, int *exit_code) {
                 VirtAddr bottom = top - KERNEL_STACK_SIZE;
                 extern PhysPageNum kernel_pagetable;
                 unmap_area(kernel_pagetable, bottom, top, 1);
-                pid_dealloc(pid); vector_free(&child->tcb->fd_table);
-                bd_free(child->tcb);
+                File *t = (File *)child->tcb->fd_table.buffer;
+                for (int i = 0; i < child->tcb->fd_table.size; i++) {
+                    if (t[i].occupied) t[i].close(&t[i]);
+                }
+                vector_free(&child->tcb->fd_table);
+                pid_dealloc(pid); bd_free(child->tcb);
                 lst_remove(lst); bd_free(child);
                 return pid;
             } else return -2;

@@ -14,5 +14,7 @@
 #define SYSCALL_GETPID 10
 #define SYSCALL_CLOSE 11
 #define SYSCALL_OPEN 12
+#define SYSCALL_GETSIZE 13
+#define SYSCALL_DUP 14
 
 #endif

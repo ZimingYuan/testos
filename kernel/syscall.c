@@ -33,12 +33,14 @@ isize sys_fork() {
 }
 isize sys_exec(char *name, char **argv) {
     struct vector vname; vector_new(&vname, 1);
+    struct vector vargv; vector_new(&vargv, 1);
     PhysAddr pgtbl = current_user_pagetable(); usize l = 0;
     for (;;) {
         char c; copy_area(pgtbl, (VirtAddr)name + l, &c, 1, 0); 
-        vector_push(&vname, &c); if (c == '\0') break; else l++;
+        vector_push(&vname, &c); vector_push(&vargv, &c);
+        if (c == '\0') break; else l++;
     }
-    struct vector vargv; vector_new(&vargv, 1); usize argc = 0;
+    usize argc = 0;
     for (;;) {
         char *addr;
         copy_area(pgtbl, (VirtAddr)argv + argc * sizeof(char *),
@@ -103,6 +105,14 @@ isize sys_pipe(usize *pipe) {
     copy_area(current_user_pagetable(), (VirtAddr)pipe,
             t, 2 * sizeof(usize), 1);
     return 0;
+}
+isize sys_dup(usize fd) {
+    File *f = current_user_file(fd); if (!f) return -1;
+    File *o = alloc_fd(&fd); *o = *f; f->copy(f); return 0;
+}
+isize sys_getsize(usize fd) {
+    File *f = current_user_file(fd); if (!f) return -1;
+    FNode *fn = (FNode *)f->bind; return (isize)*(int *)(fn->dinode + 4);
 }
 isize sys_getpid() {
     return (isize)getpid();

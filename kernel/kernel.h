@@ -84,7 +84,9 @@ isize sys_waitpid(isize, int *);
 isize sys_gets(char *, usize);
 isize sys_pipe(usize *);
 isize sys_open(char *, usize);
+isize sys_dup(usize);
 isize sys_getpid();
+isize sys_getsize(usize fd);
 
 // timer.c
 void set_next_trigger();
@@ -160,6 +162,7 @@ void queue_free(struct queue *);
 // file.c
 usize std_read(File *, char *, usize);
 usize std_write(File *, char *, usize);
+void std_close(File *);
 usize illegal_rw(File *, char *, usize);
 void illegal_c(File *);
 void make_pipe(usize *);

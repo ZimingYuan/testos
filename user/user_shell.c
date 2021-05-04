@@ -26,7 +26,25 @@ int main() {
         isize pid = fork();
         if (pid == 0) {
             // child process
-            if (exec(line, argv) == -1) {
+            if (argc > 2) {
+                if (argv[argc - 2][0] == '<') {
+                    isize f = open(argv[argc - 1], O_RDONLY);
+                    if (f < 0) {
+                        printf("Redirect failed!\n");
+                        return -4;
+                    }
+                    close(0); dup(f); close(f); argv[argc - 2] = 0;
+                }
+                if (argv[argc - 2][0] == '>') {
+                    isize f = open(argv[argc - 1], O_CREAT | O_WRONLY);
+                    if (f < 0) {
+                        printf("Redirect failed!\n");
+                        return -4;
+                    }
+                    close(1); dup(f); close(f); argv[argc - 2] = 0;
+                }
+            }
+            if (exec(argv[0], argv + 1) == -1) {
                 printf("Error when executing!\n");
                 return -4;
             }

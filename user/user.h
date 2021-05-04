@@ -16,4 +16,6 @@ isize exec(char *, char **);
 isize gets(char *, usize);
 isize pipe(usize *);
 isize open(char *, usize);
+isize dup(usize);
+isize getsize(usize);
 isize getpid();

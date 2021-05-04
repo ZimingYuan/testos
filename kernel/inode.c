@@ -185,6 +185,7 @@ void add_file(char *name, int len, int inode_num, int inodep_num, char *dinode) 
 }
 char dinode[128];
 FNode *inode_get(char *path, int create) {
+    if (path[0] != '/') return 0;
     get_inode(2, dinode); int len = strlen(path);
     int j = 1, inodep_num = 2;
     for (int i = 1; i < len; i++) {

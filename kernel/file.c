@@ -19,6 +19,9 @@ usize std_read(File *self, char *buffer, usize len) {
     }
     return len;
 }
+void std_close(File *self) {
+    self->occupied = 0;
+}
 
 typedef struct Pipe {
     usize refcnt, wrefcnt;
@@ -84,7 +87,7 @@ void fnode_close(File *self) {
 isize make_fnode(char *path, usize flags) {
     FNode *i;
     if (flags & O_CREAT) {
-        i = inode_get(path, 1);
+        i = inode_get(path, 1); if (!i) return -1;
         inode_clear(i);
     } else {
         i = inode_get(path, 0); if (!i) return -1;

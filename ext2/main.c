@@ -10,6 +10,7 @@ int main(int argc, char **argv) {
         puts(help); return -1;
     }
     image_path = argv[4]; init_ext2();
+    printf("fuck");
     if (strcmp(argv[1], "-I") == 0) {
         FILE *f = fopen(argv[2], "rb");
         if (!f) {
@@ -19,7 +20,8 @@ int main(int argc, char **argv) {
         long size = ftell(f); fseek(f, 0, SEEK_SET);
         char *s = malloc(size); fread(s, 1, size, f);
         FNode *fn = inode_get(argv[3], 1); fn->offset = 0;
-        inode_clear(fn); inode_write(fn, s, size);
+        inode_clear(fn);
+        inode_write(fn, s, size);
         free(s); fclose(f); bd_free(fn); bcache_save();
     } else if (strcmp(argv[1], "-O") == 0) {
         FNode *fn = inode_get(argv[3], 0);

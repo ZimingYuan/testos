@@ -32,6 +32,10 @@ isize syscall(usize syscall_id, usize args0, usize args1, usize args2) {
             return sys_pipe((usize *)args0);
         case SYSCALL_OPEN:
             return sys_open((char *)args0, args1);
+        case SYSCALL_DUP:
+            return sys_dup(args0);
+        case SYSCALL_GETSIZE:
+            return sys_getsize(args0);
         case SYSCALL_GETPID:
             return sys_getpid();
         default:
@@ -74,11 +78,12 @@ void trap_handler() {
             );
     TrapContext *cx = current_user_trap_cx();
     if (scause == 8) {
-        cx->sepc += 4;
+        cx->sepc += 4; int is_exec = cx->x[17] == SYSCALL_EXEC;
         isize result = syscall(cx->x[17], cx->x[10], cx->x[11], cx->x[12]);
         cx = current_user_trap_cx();
-        cx->x[10] = result;
+        if (!is_exec) cx->x[10] = result;
     } else if (scause == (1L << 63) + 5) {
+        // printf("%d %d\n", scause, cx->x[10]);
         set_next_trigger();
         suspend_current_and_run_next();
     } else if (scause == (1L << 63) + 9) {
@@ -91,6 +96,13 @@ void trap_handler() {
 }
 void trap_return() {
     kernel_intr_switch(0); time_intr_switch(1);
+    // usize scause;
+    // asm volatile (
+    //         "csrr %0, scause\n"
+    //         :"=r"(scause)
+    //         );
+    // TrapContext *trap_cx = current_user_trap_cx();
+    // printf("%d %d\n", scause, trap_cx->x[10]);
     asm volatile("csrw stvec, %0"::"r"(TRAMPOLINE));
     usize user_satp = PGTB2SATP(current_user_pagetable());
     void __alltraps(); void __restore();

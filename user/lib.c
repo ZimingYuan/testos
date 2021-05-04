@@ -68,11 +68,17 @@ isize pipe(usize *pipe) {
 isize open(char *path, usize flags) {
     return syscall(SYSCALL_OPEN, (usize)path, flags, 0);
 }
+isize dup(usize fd) {
+    return syscall(SYSCALL_DUP, fd, 0, 0);
+}
+isize getsize(usize fd) {
+    return syscall(SYSCALL_GETSIZE, fd, 0, 0);
+}
 isize getpid() {
     return syscall(SYSCALL_GETPID, 0, 0, 0);
 }
 int main(int argc, char **argv);
 __attribute__((section(".text.entry")))
-void _start(int argc, char **argv) {
+void _start(usize argc, char **argv) {
     exit(main(argc, argv));
 }
