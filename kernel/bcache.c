@@ -44,7 +44,7 @@ updtime:
 }
 void bcache_save() {
     while (bcache_state) suspend_current_and_run_next(); bcache_state = 1;
-    for (int i = 0; i < NBUF; i++) if (buf[i].modify) {
+    for (int i = 0; i < NBUF; i++) if (buf[i].occupied && buf[i].modify) {
         virtio_disk_rw(buf + i, 1); buf[i].modify = 0;
     }
     bcache_state = 0;

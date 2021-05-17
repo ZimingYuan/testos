@@ -1,3 +1,5 @@
+// Most of this file is copy from xv6-riscv(https://github.com/mit-pdos/xv6-riscv)
+
 //
 // virtio device definitions.
 // for both the mmio interface, and virtio descriptors.

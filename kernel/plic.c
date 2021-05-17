@@ -1,3 +1,5 @@
+// Most of this file is copy from xv6-riscv(https://github.com/mit-pdos/xv6-riscv)
+
 #include "kernel.h"
 #define PLIC_SENABLE(hart) (PLIC + 0x2080 + (hart)*0x100)
 #define PLIC_SPRIORITY(hart) (PLIC + 0x201000 + (hart)*0x2000)

@@ -14,8 +14,7 @@ $(user_obj): $(wildcard user/*.c) common/common.c
 	$(CC) user/$(@F).c user/lib.c common/common.c -T user/linker.ld -o $@
 	ext2/ext2 -I $@ /$(@F) $(file_img)
 compile: $(user_obj)
-	python kernel/build.py
-	$(CC) kernel/*.c kernel/*.S build/link_app.S common/common.c -T kernel/linker.ld -o build/os
+	$(CC) kernel/*.c kernel/*.S common/common.c -T kernel/linker.ld -o build/os
 	riscv64-unknown-elf-objcopy --strip-all -O binary build/os build/os.bin
 debug: compile
 	qemu-system-riscv64 -machine virt -nographic -bios $(rust_sbi) \

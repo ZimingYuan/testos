@@ -1,5 +1,4 @@
 #include "kernel.h"
-#include "queue.h"
 
 enum TaskStatus {
     UnInit, Ready, Running, Exited, Zombie

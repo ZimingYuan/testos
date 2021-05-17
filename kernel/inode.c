@@ -237,8 +237,7 @@ int dfs_clear(int block_num, int dep) {
     int f = 0;
     for (int i = 0; i < BSIZE / 4; i++)
         if (dfs_clear(table[i], dep - 1)) { f = 1; break; }
-    memset(table, 0, BSIZE); bcache_rw(block_num, 0, BSIZE, table, 1);
-    bd_free(table); return f;
+    bd_free(table); free_block(block_num); return f;
 }
 void inode_clear(FNode *fn) {
     TO32(fn->dinode + 4) = 0;
