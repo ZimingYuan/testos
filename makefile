@@ -16,4 +16,5 @@ k210:
 	python3 kflash.py -p $(k210_serialport) -b 1500000 os_k210.bin
 	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(k210_serialport) 115200
 clean:
-	rm *.bin
+	rm os.bin
+	rm os_k210.bin
