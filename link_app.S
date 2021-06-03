@@ -1,6 +1,6 @@
-    .align 3
     .section .data
     .global _num_app
+    .align 3
 _num_app:
     .quad 3
     .quad app_0_start
