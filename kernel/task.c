@@ -94,6 +94,6 @@ void exit_current_and_run_next() {
     run_next_task();
 }
 void run_first_task() {
-    tasks[0].task_status = Running;
+    tasks[0].task_status = Running; current_task = 0;
     usize t; __switch(&t, &tasks[0].task_cx_ptr);
 }

@@ -20,7 +20,14 @@ isize syscall(usize syscall_id, usize args0, usize args1, usize args2) {
             panic("Other syscall");
     }
 }
-void trap_from_kernel() {
+__attribute__((aligned (4))) void trap_from_kernel() {
+    usize scause, sepc;
+    asm volatile (
+            "csrr %0, scause\n"
+            "csrr %1, sepc\n"
+            :"=r"(scause), "=r"(sepc)
+            );
+    printf("%p %p\n", scause, sepc);
     panic("trap_from_kernel");
 }
 void trap_handler() {
