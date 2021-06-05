@@ -54,6 +54,9 @@ void list_apps() {
     printf("**************/\n");
 }
 void load_all() {
+    // clear bss
+    extern char sbss, ebss;
+    for (char *i = &sbss; i < &ebss; i++) *i = 0;
     // load heap buffer
     bd_init(HEAP_SPACE, HEAP_SPACE + KERNEL_HEAP_SIZE);
     // load kernel virtual memory
@@ -61,9 +64,9 @@ void load_all() {
     // load app names
     load_app_names(); list_apps();
     // load timer interrupt
-    usize sie; asm volatile("csrr %0, sie":"=r"(sie));
-    sie |= (1 << 5); asm volatile("csrw sie, %0"::"r"(sie));
-    set_next_trigger();
+    // usize sie; asm volatile("csrr %0, sie":"=r"(sie));
+    // sie |= (1 << 5); asm volatile("csrw sie, %0"::"r"(sie));
+    // set_next_trigger();
     // load tasks
     task_init_and_run();
 }

@@ -163,6 +163,7 @@ usize fork() {
 
     add_task(tcb); return tcb->pid;
 }
+char a[20];
 isize exec(char *name) {
     if (! get_app_data_by_name(name)) return -1;
     TaskControlBlock *p = PROCESSOR.current;
