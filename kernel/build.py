@@ -2,9 +2,9 @@ from pathlib import Path
 
 program = list(filter(lambda x: x != Path('user/lib.c'), Path('user/').glob('*.c')))
 f = open('build/link_app.S', 'w')
-f.write('''.align 3
-    .section .data
+f.write('''.section .data
     .global _num_app
+    .align 3 
 _num_app:
 ''')
 f.write(f'    .quad {len(program)}\n')

@@ -1,6 +1,11 @@
 #include "kernel.h"
 
+#ifdef K210
+#define CLOCK_FREQ (403000000 / 62)
+#else
 #define CLOCK_FREQ 12500000
+#endif
+
 #define TICKS_PER_SEC 100
 #define MSEC_PER_SEC 1000
 
