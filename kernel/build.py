@@ -19,10 +19,10 @@ for i in program:
     f.write(f'    .string "{i.stem}"\n')
 for i, j in enumerate(program):
     f.write(f'''
+    .align 3
     .section .data
     .global app_{i}_start
     .global app_{i}_end
-    .align 3
 app_{i}_start:
     .incbin "build/{j.stem}"
 app_{i}_end:
