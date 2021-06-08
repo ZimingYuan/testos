@@ -1,8 +1,8 @@
 #include "user.h"
 
 int main() {
-    int f = 0; //fork();
-    if (f == 0) exec("hello_world0");
+    int f = fork();
+    if (f == 0) exec("user_shell");
     else {
         for (;;) {
             int exit_code = 0;

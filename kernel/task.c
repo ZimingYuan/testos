@@ -168,7 +168,7 @@ isize exec(char *name) {
     if (! get_app_data_by_name(name)) return -1;
     TaskControlBlock *p = PROCESSOR.current;
     unmap_area(p->pagetable, 0, p->base_size, 1);
-    user_init(p, name);
+    user_init(p, name); asm volatile ("fence.i");
 }
 isize waitpid(isize pid, int *exit_code) {
     TaskControlBlock *p = PROCESSOR.current;

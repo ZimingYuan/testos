@@ -27,15 +27,15 @@ isize syscall(usize syscall_id, usize args0, usize args1, usize args2) {
     }
 }
 __attribute__ ((aligned (4))) void trap_from_kernel() {
-    usize scause, sepc, stvec;
+    usize scause, sepc, stval;
     asm volatile (
             "csrr %0, scause\n"
             "csrr %1, sepc\n"
-            "csrr %2, stvec\n"
-            :"=r"(scause), "=r"(sepc), "=r"(stvec)
+            "csrr %2, stval\n"
+            :"=r"(scause), "=r"(sepc), "=r"(stval)
             );
     printf("scause:%p\n", scause); printf("sepc:%p\n", sepc);
-    printf("stvec:%p\n", stvec);
+    printf("stval:%p\n", stval);
     panic("trap_from_kernel");
 }
 void trap_handler() {
@@ -59,9 +59,7 @@ void trap_handler() {
     } else {
         printf("scause:%p\n", scause);
         printf("stval:%p\n", stval);
-        printf("sepc:%p %p\n", cx->sepc, sepc);
-        printf("sp:%p\n", cx->x[2]);
-        printf("s0:%p\n", cx->x[8]);
+        printf("sepc:%p\n", cx->sepc);
         panic("Other trap");
     }
     trap_return();

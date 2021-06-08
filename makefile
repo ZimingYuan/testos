@@ -1,6 +1,6 @@
 rustsbi-k210_size = 131072
 k210_serialport = /dev/ttyUSB0 
-CC = riscv64-unknown-elf-gcc -ffreestanding -nostdlib -g -mcmodel=medany -Icommon
+CC = riscv64-unknown-elf-gcc -ffreestanding -nostdlib -g -mcmodel=medany -Icommon -march=rv64imafd
 OC = riscv64-unknown-elf-objcopy --strip-all -O binary
 user_obj = $(foreach i, $(filter-out user/lib.c, $(wildcard user/*.c)), build/$(basename $(notdir $i)))
 run: compile
